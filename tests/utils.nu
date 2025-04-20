@@ -8,14 +8,7 @@ export const DATABASE = {
 }
 
 export def surrealdb_setup []: nothing -> record {
-    # Make ten attempts to aquire an unused port
-    #
-    # This can possible fail by lsop not catching overlapping ports in time
-    let bind = 0..9
-        | each {|_| random int 8000..8888}
-        | where (lsof $"-i:($it)" | is-empty)
-        | first
-        | $"127.0.0.1:($in)"
+    let bind = ["127.0.0.1", (port | to text)] | str join ":"
 
     job spawn {(
         surreal
