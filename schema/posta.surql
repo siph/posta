@@ -41,7 +41,7 @@ DEFINE FIELD pass ON Author TYPE string
         FOR select NONE;
 
 DEFINE INDEX unique_author_email_address_index ON TABLE Author FIELDS email_address UNIQUE;
-DEFINE INDEX author_name_search_index ON TABLE Author FIELDS name SEARCH ANALYZER search BM25 HIGHLIGHTS CONCURRENTLY;
+DEFINE INDEX author_name_search_index ON TABLE Author FIELDS name UNIQUE SEARCH ANALYZER search BM25 HIGHLIGHTS CONCURRENTLY;
 
 -- Record User Access
 -- https://surrealdb.com/docs/surrealql/statements/define/access/record
