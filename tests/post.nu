@@ -2,7 +2,7 @@
 
 use std/testing *
 use ./testing.nu *
-use ./utils.nu [surrealdb_setup, surrealdb_teardown, new_user, send_query]
+use ./utils.nu [surrealdb_setup, surrealdb_teardown, make_random_authors, send_query]
 
 use std assert
 
@@ -48,7 +48,7 @@ export def starred_post_auth [] {
 
     let post = make_new_post $database | get result
 
-    let new_user = new_user $database.bind
+    let new_user = $database.bind | make_random_authors | first
 
     let _unauthorized_starred = {
         query: "RELATE ((SELECT in FROM published).in)->starred->$post"
@@ -124,7 +124,7 @@ export def delete_post_auth [] {
 
     let post = make_new_post $database | get result
 
-    let new_user = new_user $database.bind
+    let new_user = $database.bind | make_random_authors | first
 
     let delete_error = {
         query: "DELETE $id"
@@ -182,7 +182,7 @@ export def edit_post_auth [] {
 
     let post = make_new_post $database | get result
 
-    let new_user = new_user $database.bind
+    let new_user = $database.bind | make_random_authors | first
 
     let edit_error = {
         query: "UPDATE $id MERGE {body: $body}"

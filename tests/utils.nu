@@ -1,10 +1,29 @@
+use std
+
 export const DATABASE = {
     ns: "posta"
     db: "posta"
     ac: "Author"
-    name: "bapa"
-    email_address: "bapa@bapa.com"
-    pass: "bapa"
+    root_user: "posta"
+    root_pass: "posta"
+}
+
+export def make_random_authors [count: int = 1]: string -> table {
+    let bind = $in
+
+    1..$count
+        | each {|_| random chars }
+        | each {|name|
+            {
+                name: $name
+                email_address: $"($name)@($name).($name)"
+                pass: $name
+            } | merge ($DATABASE | select ns db ac)
+        }
+        | each {|author|
+            http post --content-type application/json $"http://($bind)/signup" $author
+            $author
+        }
 }
 
 export def surrealdb_setup []: nothing -> record {
@@ -16,16 +35,17 @@ export def surrealdb_setup []: nothing -> record {
             memory
             --allow-all
             --import-file ./schema/posta.surql
-            --user $DATABASE.name
-            --pass $DATABASE.pass
+            --user ($DATABASE | get root_user)
+            --pass ($DATABASE | get root_pass)
             --bind $bind
     )};
 
     sleep 1sec;
 
-    http post --content-type application/json $"http://($bind)/signup" $DATABASE;
-
-    $DATABASE | merge {bind: $bind}
+    $bind
+        | make_random_authors
+        | first
+        | merge {bind: $bind}
 }
 
 export def surrealdb_teardown [] { job list | get id | each { |id| job kill $id } }
@@ -63,16 +83,4 @@ export def send_query [database: record]: record<args: record, query: string> ->
                 })
                 $query_url
         )
-}
-
-export def new_user [bind: string]: nothing -> record {
-    let new_user = {
-        name: "talmbout"
-        email_address: "talmbout@talmbout.com"
-        pass: "talmbout"
-    } | merge ($DATABASE | select ns db ac)
-
-    http post --content-type application/json $"http://($bind)/signup" $new_user
-
-    $new_user
 }

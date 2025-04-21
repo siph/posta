@@ -2,7 +2,7 @@
 
 use std/testing *
 use ./testing.nu *
-use ./utils.nu [surrealdb_setup, surrealdb_teardown, new_user, send_query]
+use ./utils.nu [surrealdb_setup, surrealdb_teardown, make_random_authors, send_query]
 
 use std assert
 
@@ -10,29 +10,14 @@ use std assert
 export def subscribed [] {
     let database = surrealdb_setup
 
-    let jimmy = {
-        name: "jimmy"
-        email_address: "jimmy@jimmy.com"
-        pass: "jimmy"
-    } | merge ($database | select ns db ac)
-
-    let bimmy = {
-        name: "bimmy"
-        email_address: "bimmy@bimmy.com"
-        pass: "bimmy"
-    } | merge ($database | select ns db ac)
-
-    [$bimmy, $jimmy]
-        | each {|author|
-            http post --content-type application/json $"http://($database.bind)/signup" $author
-        }
+    let authors = $database.bind | make_random_authors 2
 
     let subscribed = {
         query: "RELATE ($auth.id)->subscribed->(SELECT id FROM Author WHERE name IS $name)"
         args: {
-            name: "jimmy"
+            name: ($authors.0 | get name)
         }}
-        | send_query ($bimmy | merge ($database | select bind))
+        | send_query ($authors.1 | merge ($database | select bind))
         | first
 
     assert equal $subscribed.status "OK"
@@ -41,12 +26,16 @@ export def subscribed [] {
     let duplicate_subscription = {
         query: "RELATE ($auth.id)->subscribed->(SELECT id FROM Author WHERE name IS $name)"
         args: {
-            name: "jimmy"
+            name: ($authors.0 | get name)
         }}
-        | send_query ($bimmy | merge ($database | select bind))
+        | send_query ($authors.1 | merge ($database | select bind))
         | first
 
     assert equal $duplicate_subscription.status "ERR"
+    assert (
+        $duplicate_subscription.result
+        | str contains "Database index `unique_subscribed_relationships` already contains"
+    )
 
     surrealdb_teardown
 }
@@ -55,29 +44,14 @@ export def subscribed [] {
 export def subscribed_auth [] {
     let database = surrealdb_setup
 
-    let jimmy = {
-        name: "jimmy"
-        email_address: "jimmy@jimmy.com"
-        pass: "jimmy"
-    } | merge ($database | select ns db ac)
-
-    let bimmy = {
-        name: "bimmy"
-        email_address: "bimmy@bimmy.com"
-        pass: "bimmy"
-    } | merge ($database | select ns db ac)
-
-    [$bimmy, $jimmy]
-        | each {|author|
-            http post --content-type application/json $"http://($database.bind)/signup" $author
-        }
+    let authors = $database.bind | make_random_authors 2
 
     let subscribed = {
         query: "RELATE (SELECT id FROM Author WHERE name IS $name)->subscribed->($auth.id)"
         args: {
-            name: "bimmy"
+            name: ($authors.1 | get name)
         }}
-        | send_query ($jimmy | merge ($database | select bind))
+        | send_query ($authors.0 | merge ($database | select bind))
         | first
 
     assert equal $subscribed.status "OK"
