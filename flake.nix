@@ -41,7 +41,6 @@
                 src = ./.;
                 nativeBuildInputs = [nushell];
                 buildInputs = [
-                  lsof
                   surrealdb-flake.packages.${system}.default
                 ];
                 buildPhase = ''
@@ -58,7 +57,6 @@
           devShells = with pkgs; {
             default = mkShell {
               buildInputs = [
-                lsof
                 nushell
                 surrealdb-flake.packages.${system}.default
               ];
