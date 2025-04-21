@@ -33,15 +33,29 @@
         with pkgs; {
           formatter = pkgs.alejandra;
 
+          _module.args.pkgs = import nixpkgs {
+            inherit system;
+
+            config = {
+              allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) ["surrealdb"];
+            };
+
+            overlays = [
+              (final: prev: {
+                surrealdb = surrealdb-flake.packages.${system}.default;
+              })
+            ];
+          };
+
           checks = {
             posta-tests = with pkgs;
               stdenv.mkDerivation {
                 inherit system;
                 name = "posta tests";
                 src = ./.;
-                nativeBuildInputs = [nushell];
                 buildInputs = [
-                  surrealdb-flake.packages.${system}.default
+                  nushell
+                  surrealdb
                 ];
                 buildPhase = ''
                   ${nushell}/bin/nu \
@@ -58,7 +72,7 @@
             default = mkShell {
               buildInputs = [
                 nushell
-                surrealdb-flake.packages.${system}.default
+                surrealdb
               ];
             };
           };
