@@ -182,3 +182,13 @@ DEFINE EVENT post_tagged ON TABLE tagged WHEN $event IS "CREATE" THEN {
     };
 };
 
+-- ------------------------------
+-- TABLE: subscribed
+-- ------------------------------
+
+DEFINE TABLE subscribed TYPE RELATION IN Author OUT Author ENFORCED SCHEMAFULL
+    PERMISSIONS
+        FOR create, delete WHERE in IS $auth.id
+        FOR select FULL;
+
+DEFINE INDEX unique_subscribed_relationships ON subscribed FIELDS in, out UNIQUE;
