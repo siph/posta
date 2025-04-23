@@ -12,8 +12,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: cachix/install-nix-action@v31
-      - uses: DeterminateSystems/magic-nix-cache-action@v9
         with:
           extra_nix_config: |
-            access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+            trusted-public-keys = surrealdb.cachix.org-1:rbm7Qs+s36pxbfk9jhIa5HRld6gZ63koZz1h/9sSxaA=
+            substituters = https://surrealdb.cachix.org
+      # - uses: DeterminateSystems/magic-nix-cache-action@v9
+      #   with:
+      #     extra_nix_config: |
+      #       access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
       - run: nix flake check
