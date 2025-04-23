@@ -168,17 +168,16 @@
         "nixpkgs": "nixpkgs_2"
       },
       "locked": {
-        "lastModified": 1744723530,
-        "narHash": "sha256-h0eghIwFACHXMcngiQQG7IhjMch+0NdTWYRLxAC6s5E=",
+        "lastModified": 1745321023,
+        "narHash": "sha256-2p5H2k/MvUjWEvBwF5oJU9ZdfPBiDcJmawTQM0894ns=",
         "owner": "surrealdb",
         "repo": "surrealdb",
-        "rev": "bdd9f2e334fcaa43e154ffe29f0006b5ab064235",
+        "rev": "89dd1ce66151f4223f4de16096ba4a7bf194a103",
         "type": "github"
       },
       "original": {
         "owner": "surrealdb",
         "repo": "surrealdb",
-        "rev": "bdd9f2e334fcaa43e154ffe29f0006b5ab064235",
         "type": "github"
       }
     }

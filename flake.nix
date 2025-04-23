@@ -4,8 +4,7 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-parts.url = "github:hercules-ci/flake-parts";
-    # TODO: Last version of `2.x.x`, remove when surrealist is updated to support `3.x.x`
-    surrealdb-flake.url = "github:surrealdb/surrealdb/bdd9f2e334fcaa43e154ffe29f0006b5ab064235";
+    surrealdb-flake.url = "github:surrealdb/surrealdb";
   };
 
   outputs = inputs @ {
