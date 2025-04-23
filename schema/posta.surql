@@ -41,7 +41,8 @@ DEFINE FIELD pass ON Author TYPE string
         FOR select NONE;
 
 DEFINE INDEX unique_author_email_address_index ON TABLE Author FIELDS email_address UNIQUE;
-DEFINE INDEX author_name_search_index ON TABLE Author FIELDS name UNIQUE SEARCH ANALYZER search BM25 HIGHLIGHTS CONCURRENTLY;
+DEFINE INDEX unique_author_name_index ON TABLE Author FIELDS name UNIQUE;
+DEFINE INDEX author_name_search_index ON TABLE Author FIELDS name SEARCH ANALYZER search BM25 HIGHLIGHTS CONCURRENTLY;
 
 -- Record User Access
 -- https://surrealdb.com/docs/surrealql/statements/define/access/record
@@ -62,7 +63,8 @@ DEFINE EVENT author_deleted ON TABLE Author WHEN $event IS "DELETE" THEN {
     --
     -- Edge tables `published` and `edited` will automatically be deleted when
     -- no connecting nodes exists.
-    DELETE Post WHERE <-published<-Author.id IS $before.id;
+    DELETE (SELECT out FROM published WHERE in IS $value.id).out;
+    DELETE subscribed WHERE out IS $before.id;
 };
 
 -- ------------------------------
@@ -112,10 +114,14 @@ DEFINE EVENT post_edited ON TABLE Post WHEN $event IS "UPDATE" THEN {
 };
 
 DEFINE EVENT post_deleted ON TABLE Post WHEN $event IS "DELETE" THEN {
-    IF array::is_empty(SELECT id FROM published WHERE in IS $auth.id AND out IS $value.id) {
+    IF array::is_empty(SELECT * FROM $auth.id) {
+        DELETE starred WHERE in IS $before.id;
+        DELETE tagged WHERE in IS $before.id;
+    } ELSE IF array::is_empty(SELECT id FROM published WHERE in IS $auth.id AND out IS $value.id) {
         THROW "Cannot delete unowned resource";
     };
 
+    DELETE starred WHERE in IS $before.id;
     DELETE tagged WHERE in IS $before.id;
 };
 
