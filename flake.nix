@@ -4,8 +4,7 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-parts.url = "github:hercules-ci/flake-parts";
-    # TODO: Last version of `2.x.x`, remove when surrealist is updated to support `3.x.x`
-    surrealdb-flake.url = "github:surrealdb/surrealdb/bdd9f2e334fcaa43e154ffe29f0006b5ab064235";
+    surrealdb-flake.url = "github:surrealdb/surrealdb";
   };
 
   outputs = inputs @ {
@@ -33,16 +32,29 @@
         with pkgs; {
           formatter = pkgs.alejandra;
 
+          _module.args.pkgs = import nixpkgs {
+            inherit system;
+
+            config = {
+              allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) ["surrealdb"];
+            };
+
+            overlays = [
+              (final: prev: {
+                surrealdb = surrealdb-flake.packages.${system}.default;
+              })
+            ];
+          };
+
           checks = {
             posta-tests = with pkgs;
               stdenv.mkDerivation {
                 inherit system;
                 name = "posta tests";
                 src = ./.;
-                nativeBuildInputs = [nushell];
                 buildInputs = [
-                  lsof
-                  surrealdb-flake.packages.${system}.default
+                  nushell
+                  surrealdb
                 ];
                 buildPhase = ''
                   ${nushell}/bin/nu \
@@ -58,9 +70,8 @@
           devShells = with pkgs; {
             default = mkShell {
               buildInputs = [
-                lsof
                 nushell
-                surrealdb-flake.packages.${system}.default
+                surrealdb
               ];
             };
           };
