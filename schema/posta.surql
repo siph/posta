@@ -148,7 +148,7 @@ DEFINE TABLE published TYPE RELATION IN Author OUT Post ENFORCED SCHEMAFULL
 
 DEFINE FIELD date ON published TYPE datetime DEFAULT time::now() READONLY;
 
-DEFINE INDEX unique_published_relationships ON published FIELDS in, out UNIQUE;
+DEFINE INDEX unique_published_relationships ON published FIELDS out UNIQUE;
 
 -- ------------------------------
 -- TABLE: edited
