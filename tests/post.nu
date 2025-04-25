@@ -7,6 +7,160 @@ use ./utils.nu [surrealdb_setup, surrealdb_teardown, make_random_authors, send_q
 use std assert
 
 @test
+export def disable_discussion [] {
+    let database = surrealdb_setup
+
+    let author = $database.bind | make_random_authors | each {|it| $it | insert bind ($database | get bind)} | first
+
+    let post = make_new_post $author | get result
+
+    let comment_query = {
+        query: "UPDATE $post MERGE {discussion: $discussion}"
+        args: {
+            post: ($post | get id)
+            discussion: false
+        }} | send_query $author | first
+
+    assert equal $comment_query.status "OK"
+
+    let comment = {
+        query: "RELATE ($auth.id)->comment->$post CONTENT { message: $message };"
+        args: {
+            post: ($post | get id)
+            message: (random chars)
+        }}
+        | send_query $database
+        | first
+
+    assert equal $comment.status "OK"
+    assert length $comment.result 0
+    assert length ({query: "SELECT * FROM comment", args: {}} | send_query $author | first | get result) 0
+
+    surrealdb_teardown
+}
+
+@test
+export def deleted_comment [] {
+    let database = surrealdb_setup
+
+    let authors = $database.bind | make_random_authors 2 | each {|it| $it | insert bind ($database | get bind)}
+
+    let post = make_new_post $authors.0 | get result
+
+    let comment_query = {
+        query: "RELATE ($auth.id)->comment->$post CONTENT { message: $message };"
+        args: {
+            post: ($post | get id)
+            message: (random chars)
+        }}
+
+    let comments = (0..1 | each {|i| $comment_query | send_query ($authors | get $i) | first })
+        | append ($comment_query | send_query $database | first)
+
+    $comments | each {|comment| assert equal $comment.status "OK"}
+
+    assert length ({query: "SELECT * FROM comment", args: {}} | send_query $authors.0 | first | get result) 3
+
+    let _failed_delete = {
+        query: "DELETE comment WHERE in IS (SELECT id FROM Author WHERE name IS $name) AND out IS $post"
+        args: {
+            post: ($post | get id)
+            name: ($database | get name)
+        }} | send_query $authors.1
+
+    assert length ({query: "SELECT * FROM comment", args: {}} | send_query $authors.0 | first | get result) 3
+
+    let deleted_commenter = {
+        query: "DELETE comment WHERE in IS ($auth.id) AND out IS $post"
+        args: { post: ($post | get id) }}
+        | send_query $authors.1
+        | first
+
+    assert equal $deleted_commenter.status "OK"
+
+    assert length ({query: "SELECT * FROM comment", args: {}} | send_query $authors.0 | first | get result) 2
+
+    let deleted_author = {
+        query: "DELETE comment WHERE out IS $post"
+        args: { post: ($post | get id) }}
+        | send_query $authors.0
+        | first
+
+    assert equal $deleted_author.status "OK"
+
+    assert length ({query: "SELECT * FROM comment", args: {}} | send_query $authors.0 | first | get result) 0
+
+    surrealdb_teardown
+}
+
+@test
+export def blocked_comment [] {
+    let database = surrealdb_setup
+
+    let authors = $database.bind | make_random_authors 2 | each {|it| $it | insert bind ($database | get bind)}
+
+    let post = make_new_post $authors.0 | get result
+
+    let blocked = {
+        query: "RELATE ($auth.id)->blocked->(SELECT id FROM Author WHERE name IS $name);"
+        args: {
+            name: ($authors.1 | get name)
+        }}
+        | send_query $authors.0
+        | first
+
+    assert equal $blocked.status "OK"
+    assert length $blocked.result 1
+
+    let comment = {
+        query: "RELATE ($auth.id)->comment->$post CONTENT { message: $message };"
+        args: {
+            post: ($post | get id)
+            message: (random chars)
+        }}
+        | send_query $authors.1
+        | first
+
+    assert equal $comment.status "ERR"
+    assert ($comment.result | str contains "Cannot comment on posts when blocked by the original author!")
+
+    surrealdb_teardown
+}
+
+@test
+export def comment_post [] {
+    let database = surrealdb_setup
+
+    let authors = $database.bind | make_random_authors 2 | each {|it| $it | insert bind ($database | get bind)}
+
+    let post = make_new_post $authors.0 | get result
+    let message = random chars
+
+    let comment = {
+        query: "RELATE ($auth.id)->comment->$post CONTENT { message: $message };"
+        args: {
+            post: ($post | get id)
+            message: $message
+        }}
+        | send_query $authors.1
+        | first
+
+    assert equal $comment.status "OK"
+
+    let comments = {
+        query: "SELECT * FROM comment"
+        args: {}}
+        | send_query $authors.1
+        | first
+
+    assert equal $comments.status "OK"
+    assert length $comments.result 1
+    assert equal ($comments | get result | first | get message) $message
+
+    surrealdb_teardown
+}
+
+@test
 export def starred_post [] {
     let database = surrealdb_setup
 

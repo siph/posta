@@ -75,6 +75,7 @@ DEFINE TABLE Post SCHEMAFULL PERMISSIONS FULL;
 
 DEFINE FIELD body ON Post TYPE string;
 DEFINE FIELD title ON Post TYPE string;
+DEFINE FIELD discussion ON Post TYPE bool DEFAULT true;
 
 DEFINE INDEX body_search_index ON TABLE Post FIELDS body SEARCH ANALYZER search BM25 HIGHLIGHTS CONCURRENTLY;
 DEFINE INDEX title_search_index ON TABLE Post FIELDS title SEARCH ANALYZER search BM25 HIGHLIGHTS CONCURRENTLY;
@@ -154,7 +155,7 @@ DEFINE INDEX unique_published_relationships ON published FIELDS out UNIQUE;
 -- TABLE: edited
 -- ------------------------------
 
-DEFINE TABLE edited TYPE RELATION IN Author OUT Post ENFORCED SCHEMAFULL
+DEFINE TABLE edited TYPE RELATION IN Author OUT Post|comment ENFORCED SCHEMAFULL
     PERMISSIONS
         FOR create, select WHERE in IS $auth.id;
 
@@ -192,9 +193,68 @@ DEFINE EVENT post_tagged ON TABLE tagged WHEN $event IS "CREATE" THEN {
 -- TABLE: subscribed
 -- ------------------------------
 
-DEFINE TABLE subscribed TYPE RELATION IN Author OUT Author ENFORCED SCHEMAFULL
+DEFINE TABLE subscribed TYPE RELATION IN Author OUT Author|Tag ENFORCED SCHEMAFULL
     PERMISSIONS
         FOR create, delete WHERE in IS $auth.id
         FOR select FULL;
 
 DEFINE INDEX unique_subscribed_relationships ON subscribed FIELDS in, out UNIQUE;
+
+-- ------------------------------
+-- TABLE: comment
+-- ------------------------------
+
+DEFINE TABLE comment TYPE RELATION IN Author OUT Post ENFORCED SCHEMAFULL
+    PERMISSIONS
+        FOR create, update WHERE out.discussion AND in IS $auth.id
+        FOR delete, select FULL;
+
+DEFINE FIELD date ON comment TYPE datetime DEFAULT time::now() READONLY;
+DEFINE FIELD message ON comment TYPE string
+    ASSERT
+        string::len($value) < 10_000;
+
+DEFINE EVENT new_comment ON TABLE comment WHEN $event IS "CREATE" THEN {
+    LET $post_owner = (SELECT in FROM ONLY published WHERE out IS $value.out LIMIT 1).in;
+
+    IF !array::is_empty(SELECT * FROM blocked WHERE in IS $post_owner AND out IS $auth.id) {
+        THROW "Cannot comment on posts when blocked by the original author!";
+    };
+};
+
+DEFINE EVENT edit_comment ON TABLE comment WHEN $event IS "UPDATE" THEN {
+    IF !array::is_empty(SELECT * FROM blocked WHERE in IS $value.out AND out IS $auth.id) {
+        THROW "Cannot edit comments on posts when blocked by the original author!";
+    };
+
+    RELATE ($auth.id)->edited->($value.id) CONTENT {
+        diff_ops: value::diff($before, $after)
+    };
+};
+
+DEFINE EVENT comment_deleted ON TABLE comment WHEN $event IS "DELETE" THEN {
+    -- Ownership of comment
+    IF $auth.id != $value.in {
+        -- Ownership of Post
+        IF array::is_empty(SELECT id FROM published WHERE in IS $auth.id AND out IS $value.out) {
+            THROW "Cannot delete unowned resource";
+        };
+    };
+};
+
+-- ------------------------------
+-- TABLE: blocked
+-- ------------------------------
+
+DEFINE TABLE blocked TYPE RELATION IN Author OUT Author ENFORCED SCHEMAFULL
+    PERMISSIONS
+        FOR create, delete, select WHERE in IS $auth.id;
+
+DEFINE INDEX unique_blocked_relationships ON blocked FIELDS in, out UNIQUE;
+
+DEFINE EVENT blocked_author ON TABLE blocked WHEN $event IS "CREATE" THEN {
+    IF $value.in IS $value.out {
+        THROW "Cannot block yourself!";
+    };
+};
+
