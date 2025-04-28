@@ -86,8 +86,6 @@ DEFINE FUNCTION fn::Post::new($body: string, $title: string, $tags: array<string
         title: $title,
     } RETURN AFTER;
 
-    RELATE ($auth.id)->published->($post.id);
-
     FOR $tag IN $tags {
         LET $tag = string::lowercase($tag);
         -- Make new `Tag` if `$tag` doesn't exist
@@ -103,6 +101,10 @@ DEFINE FUNCTION fn::Post::new($body: string, $title: string, $tags: array<string
 
     RETURN $post;
 } PERMISSIONS FULL;
+
+DEFINE EVENT post_created ON TABLE Post WHEN $event IS "CREATE" THEN {
+    RELATE ($auth.id)->published->($value.id);
+};
 
 DEFINE EVENT post_edited ON TABLE Post WHEN $event IS "UPDATE" THEN {
     IF array::is_empty(SELECT id FROM published WHERE in IS $auth.id AND out IS $value.id) {
